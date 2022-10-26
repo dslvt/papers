@@ -221,7 +221,52 @@ class WordAdditionTaskCT(CharacterTable):
 
 
 class WordDiffAdditionTaskCT(CharacterTable):
-    pass
+    def __init__(self, max_len_query_digit: int = 3) -> None:
+        self.alphabet = np.array([ch for ch in string.ascii_lowercase])
+        chars = f"{string.ascii_lowercase}+= "
+        super().__init__(chars, max_len_query_digit)
+
+    @property
+    def max_input_len(self) -> int:
+        # The input has the form "word1+word2<eos>", so the max input length is
+        # the length of word plus one token for the EOS token.
+        return self._max_len_query_digit * 2 + 2
+
+    @property
+    def max_output_len(self) -> int:
+        # The output has the form "=wworrdd12<eos>".
+        # Additionally, we require two more tokens for "=" and "<eos>".
+        return self._max_len_query_digit * 2 + 2
+
+    def get_random_string(self, rnd):
+        s = "".join(
+            self.alphabet[
+                jax.random.randint(
+                    rnd,
+                    shape=(1, self._max_len_query_digit),
+                    minval=0,
+                    maxval=self.alphabet.shape[0],
+                )
+            ][0]
+        )
+        return s
+
+    def generate_examples(
+        self, num_examples: int, rnd_key: jax.random.PRNGKey
+    ) -> Generator[Tuple[str, str], None, None]:
+        for _ in range(num_examples):
+            rnd_key, rnd_1 = jax.random.split(rnd_key)
+            rnd_key, rnd_2 = jax.random.split(rnd_key)
+            key = (self.get_random_string(rnd_1), self.get_random_string(rnd_2))
+            inputs = f"{key[0]}+{key[1]}"
+            s = ''
+            for i in range(len(key[0]) + len(key[1])):
+                if i % 2 == 0:
+                    s += key[0][i // 2]
+                else:
+                    s += key[1][i // 2]
+            outputs = f"={s}"
+            yield (inputs, outputs)
 
 
 class WordReverseTaskCT(CharacterTable):
