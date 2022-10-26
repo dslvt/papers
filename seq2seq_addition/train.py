@@ -26,12 +26,14 @@ from absl import logging
 from clu import metric_writers
 from flax import linen as nn
 from flax.training import train_state
+from flax.training.checkpoints import save_checkpoint
 import jax
 import jax.numpy as jnp
 import optax
 
 import models
 from input_pipeline import CharacterTable as CTable
+from input_pipeline import tasks
 from input_pipeline import get_sequence_lengths
 from input_pipeline import mask_sequences
 
@@ -61,6 +63,8 @@ flags.DEFINE_integer(
 flags.DEFINE_integer(
     "max_len_query_digit", default=3, help=("Maximum length of a single input digit.")
 )
+
+flags.DEFINE_string("task", default="digit_addition", help=("Name of the task."))
 
 
 def get_model(ctable: CTable, *, teacher_force: bool = False) -> models.Seq2seq:
@@ -187,8 +191,7 @@ def decode_batch(
 def train_and_evaluate(workdir: str) -> train_state.TrainState:
     """Trains for a fixed number of steps and decode during training."""
 
-    # TODO(marcvanzee): Integrate ctable with train_state.
-    ctable = CTable("0123456789+= ", FLAGS.max_len_query_digit)
+    ctable = tasks[FLAGS.task](FLAGS.max_len_query_digit)
     rng = jax.random.PRNGKey(0)
     state = get_train_state(rng, ctable)
 
@@ -202,6 +205,9 @@ def train_and_evaluate(workdir: str) -> train_state.TrainState:
             rng, n_rng = jax.random.split(rng)
             batch = ctable.get_batch(5, n_rng)
             decode_batch(state, batch, rng, ctable)
+            save_checkpoint(
+                "./ckpts/", state, step, prefix=f"{FLAGS.task}_", overwrite=True, keep=5
+            )
 
     return state
 

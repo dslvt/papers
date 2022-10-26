@@ -1,9 +1,9 @@
-import random
 from typing import Any, Dict, Generator, Optional, Tuple
 
 import jax
 import jax.numpy as jnp
 import numpy as np
+import string
 
 Array = Any
 
@@ -114,8 +114,8 @@ class CharacterTable:
         inputs, outputs = zip(*self.generate_examples(batch_size, rnd_key))
 
         return {
-            "query": self.encode_onehot(inputs),
-            "answer": self.encode_onehot(outputs),
+            "query": self.encode_onehot(inputs, self.max_input_len),
+            "answer": self.encode_onehot(outputs, self.max_output_len),
         }
 
 
@@ -134,3 +134,171 @@ def get_sequence_lengths(sequence_batch: Array, eos_id: int) -> Array:
         eos_idx + 1,
         sequence_batch.shape[1],
     )
+
+
+class AdditionTaskCT(CharacterTable):
+    def __init__(self, max_len_query_digit: int = 3) -> None:
+        chars = "0123456789+= "
+        super().__init__(chars, max_len_query_digit)
+
+    @property
+    def max_input_len(self) -> int:
+        # The input has the form "digit1+digit2<eos>", so the max input length is
+        # the length of two digits plus two tokens for "+" and the EOS token.
+        return self._max_len_query_digit * 2 + 2
+
+    @property
+    def max_output_len(self) -> int:
+        # The output has the form "=digit<eos>". If `digit` is the result of adding
+        # two digits of max length x, then max length of `digit` is x+1.
+        # Additionally, we require two more tokens for "=" and "<eos>".
+        return self._max_len_query_digit + 3
+
+    def generate_examples(
+        self, num_examples: int, rnd_key: jax.random.PRNGKey
+    ) -> Generator[Tuple[str, str], None, None]:
+        for _ in range(num_examples):
+            max_digit = pow(10, self._max_len_query_digit) - 1
+            rnd_key, rnd_1 = jax.random.split(rnd_key)
+            rnd_key, rnd_2 = jax.random.split(rnd_key)
+            key = tuple(
+                sorted(
+                    (
+                        jax.random.randint(rnd_1, shape=(1,), minval=0, maxval=99)[0],
+                        jax.random.randint(
+                            rnd_2, shape=(1,), minval=0, maxval=max_digit
+                        )[0],
+                    )
+                )
+            )
+            inputs = f"{key[0]}+{key[1]}"
+            outputs = f"={key[0]+key[1]}"
+            yield (inputs, outputs)
+
+
+class WordAdditionTaskCT(CharacterTable):
+    def __init__(self, max_len_query_digit: int = 3) -> None:
+        self.alphabet = np.array([ch for ch in string.ascii_lowercase])
+        chars = f"{string.ascii_lowercase}+= "
+        super().__init__(chars, max_len_query_digit)
+
+    @property
+    def max_input_len(self) -> int:
+        # The input has the form "word1+word2<eos>", so the max input length is
+        # the length of two digits plus two tokens for "+" and the EOS token.
+        return self._max_len_query_digit * 2 + 2
+
+    @property
+    def max_output_len(self) -> int:
+        # The output has the form "=digit<eos>". If `digit` is the result of adding
+        # two digits of max length x, then max length of `digit` is x+1.
+        # Additionally, we require two more tokens for "=" and "<eos>".
+        return self._max_len_query_digit * 2 + 2
+
+    def get_random_string(self, rnd):
+        s = "".join(
+            self.alphabet[
+                jax.random.randint(
+                    rnd,
+                    shape=(1, self._max_len_query_digit),
+                    minval=0,
+                    maxval=self.alphabet.shape[0],
+                )
+            ][0]
+        )
+        return s
+
+    def generate_examples(
+        self, num_examples: int, rnd_key: jax.random.PRNGKey
+    ) -> Generator[Tuple[str, str], None, None]:
+        for _ in range(num_examples):
+            rnd_key, rnd_1 = jax.random.split(rnd_key)
+            rnd_key, rnd_2 = jax.random.split(rnd_key)
+            key = (self.get_random_string(rnd_1), self.get_random_string(rnd_2))
+            inputs = f"{key[0]}+{key[1]}"
+            outputs = f"={key[0]+key[1]}"
+            yield (inputs, outputs)
+
+
+class WordDiffAdditionTaskCT(CharacterTable):
+    pass
+
+
+class WordReverseTaskCT(CharacterTable):
+    def __init__(self, max_len_query_digit: int = 3) -> None:
+        self.alphabet = np.array([ch for ch in string.ascii_lowercase])
+        chars = f"{string.ascii_lowercase}= "
+        super().__init__(chars, max_len_query_digit)
+
+    @property
+    def max_input_len(self) -> int:
+        # The input has the form "word<eos>", so the max input length is
+        # the length of word plus one token for the EOS token.
+        return self._max_len_query_digit + 1
+
+    @property
+    def max_output_len(self) -> int:
+        # The output has the form "=work<eos>".
+        # Additionally, we require two more tokens for "=" and "<eos>".
+        return self._max_len_query_digit + 2
+
+    def get_random_string(self, rnd):
+        s = "".join(
+            self.alphabet[
+                jax.random.randint(
+                    rnd,
+                    shape=(1, self._max_len_query_digit),
+                    minval=0,
+                    maxval=self.alphabet.shape[0],
+                )
+            ][0]
+        )
+        return s
+
+    def generate_examples(
+        self, num_examples: int, rnd_key: jax.random.PRNGKey
+    ) -> Generator[Tuple[str, str], None, None]:
+        for _ in range(num_examples):
+            rnd_key, rnd = jax.random.split(rnd_key)
+            key = self.get_random_string(rnd)
+            yek = key[::-1]
+            inputs = key
+            outputs = f"={yek}"
+            yield (inputs, outputs)
+
+
+class FloatAdditionTaskCT(CharacterTable):
+    pass
+
+
+class ConsonantRemovingTaskCT(CharacterTable):
+    pass
+
+
+class LetterUppercasingMaskTaskCT(CharacterTable):
+    pass
+
+
+class SqrtTaskCT(CharacterTable):
+    pass
+
+
+class SinTaskCT(CharacterTable):
+    pass
+
+
+class MaskLetterRemovingCT(CharacterTable):
+    pass
+
+
+tasks = {
+    "digit_addition": AdditionTaskCT,
+    "word_addition": WordAdditionTaskCT,
+    "word_diff_addition": WordDiffAdditionTaskCT,
+    "word_reverse": WordReverseTaskCT,
+    "float_addition": FloatAdditionTaskCT,
+    "consonant_removing": ConsonantRemovingTaskCT,
+    "letter_uppercase": LetterUppercasingMaskTaskCT,
+    "sqrt": SqrtTaskCT,
+    "sin": SinTaskCT,
+}
