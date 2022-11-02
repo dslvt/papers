@@ -313,7 +313,9 @@ class WordReverseTaskCT(CharacterTable):
 
 
 class FloatAdditionTaskCT(CharacterTable):
-    pass
+    def __init__(self, max_len_query_digit: int = 3) -> None:
+        chars = "0123456789+=. "
+        super().__init__(chars, max_len_query_digit)
 
 
 class ConsonantRemovingTaskCT(CharacterTable):
