@@ -18,7 +18,6 @@ from utils import str_tree
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("workdir", default=".", help="Where to store log output.")
-flags.DEFINE_string("model_name", default="vgg16", help="Model name")
 flags.DEFINE_integer("random_key", default=0, help="initial random key")
 flags.DEFINE_float("learning_rate", default=0.01, help="learning rate")
 flags.DEFINE_integer("steps", default=100, help="number of steps")
@@ -28,10 +27,6 @@ flags.DEFINE_integer(
 )
 flags.DEFINE_string("layer_name", default="", help="name of layer")
 flags.DEFINE_integer("filter_num", default=0, help="filter number")
-
-
-def is_layer_exist():
-    pass
 
 
 def save_image(img, path, show=True):
@@ -94,14 +89,9 @@ def main(_):
     rng_image = rng_image.astype(jnp.float32)
     rng_image = rng_image / 255
 
-    if "vgg" in FLAGS.model_name.lower():
-        model = ModelWrapper(fm.VGG19(output="activations", pretrained="imagenet"))
-        vgg19 = fm.VGG19(output="activations", pretrained="imagenet")
-        params = vgg19.init(key, rng_image, train=False)
-    else:
-        model = ModelWrapper(fm.ResNet18(output="activations", pretrained="imagenet"))
-        resnet18 = fm.ResNet18(output="activations", pretrained="imagenet")
-        params = resnet18.init(key, rng_image)
+    model = ModelWrapper(fm.VGG19(output="activations", pretrained="imagenet"))
+    vgg19 = fm.VGG19(output="activations", pretrained="imagenet")
+    params = vgg19.init(key, rng_image, train=False)
 
     variables = model.init(jax.random.PRNGKey(1), rng_image)
     variables = variables.unfreeze()
