@@ -1,7 +1,9 @@
-import jax
-import numpy as np
-import jax.numpy as jnp
 import math
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+from flax.core.frozen_dict import FrozenDict
 from PIL import Image
 
 
@@ -65,3 +67,14 @@ def save_image(
     ndarr = np.array(jnp.clip(grid * 255.0 + 0.5, 0, 255).astype(jnp.uint8))
     im = Image.fromarray(ndarr.copy())
     im.save(fp, format=format)
+
+
+def str_tree(d, depth):
+    s = ""
+    for k in d.keys():
+        if isinstance(d[k], FrozenDict):
+            s += f'{"  " * depth} {k}\n'
+            s += str_tree(d[k], depth + 1)
+        else:
+            s += f'{"  " * depth} {k} {d[k].shape}\n'
+    return s
